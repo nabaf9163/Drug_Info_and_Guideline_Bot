@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "source": ".",
+    "runtime": "nodejs20",
+    "codebase": "medinfo-bot",
+    "predeploy": [
+      "npm run build"
+    ]
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "us-central1",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

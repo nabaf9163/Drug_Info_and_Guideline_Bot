@@ -1,0 +1,41 @@
+{
+  "name": "medinfo-bot",
+  "version": "1.0.0",
+  "description": "AI-powered clinical decision support chatbot for healthcare professionals",
+  "main": "dist/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write src/**/*.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "medical",
+    "chatbot",
+    "telegram",
+    "whatsapp",
+    "drug-information",
+    "clinical-guidelines"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@google-cloud/firestore": "^7.0.0",
+    "@google/generative-ai": "^0.24.1",
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.5.0"
+  }
+}
