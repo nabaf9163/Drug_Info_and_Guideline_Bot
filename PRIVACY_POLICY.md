@@ -55,5 +55,5 @@ We may update this Privacy Policy from time to time. We will notify users of sig
 ## 9. Contact Us
 If you have questions about this Privacy Policy, please contact us at:
 
-**[Insert Your Name or Company Name]**
-**Email:** [Insert Contact Email]
+**[Seth Awuah]**
+**Email:** [nabaf91@gmail.com]

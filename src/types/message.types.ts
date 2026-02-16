@@ -15,7 +15,9 @@ export interface NormalizedMessage {
     // Sender info
     chatId: string;
     userId: string;
-    userName?: string;
+    username?: string;
+    firstName?: string;
+    languageCode?: string;
 
     // Content
     text: string;

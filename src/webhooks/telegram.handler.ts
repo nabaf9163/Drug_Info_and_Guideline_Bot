@@ -31,6 +31,7 @@ interface TelegramUser {
     first_name: string;
     last_name?: string;
     username?: string;
+    language_code?: string;
 }
 
 interface TelegramChat {
@@ -51,14 +52,27 @@ interface TelegramCallbackQuery {
     data?: string;
 }
 
-/**
- * Parse Telegram update into normalized message
- */
+// ... (lines 36-56 unchanged) ...
+
 export function parseTelegramUpdate(update: TelegramUpdate): NormalizedMessage | null {
     // Handle regular messages
     if (update.message?.text) {
         const message = update.message;
-        const text = message.text as string; // We know it exists from the check above
+        let text = message.text as string;
+
+        // Map Reply Keyboard button text to slash commands
+        const replyKeyboardMap: Record<string, string> = {
+            '💊 Drug Info': '/drug',
+            '⚠️ Interaction': '/interact',
+            '💉 Dosage': '/dose',
+            '📋 Guidelines': '/guideline',
+            '🌍 Change Region': '/country',
+            '❓ Help': '/help',
+        };
+
+        if (replyKeyboardMap[text]) {
+            text = replyKeyboardMap[text];
+        }
 
         // Extract command if present
         let command: string | undefined;
@@ -75,7 +89,9 @@ export function parseTelegramUpdate(update: TelegramUpdate): NormalizedMessage |
             platform: PLATFORMS.TELEGRAM,
             chatId: message.chat.id.toString(),
             userId: message.from?.id.toString() ?? 'unknown',
-            userName: message.from?.first_name,
+            firstName: message.from?.first_name,
+            username: message.from?.username,
+            languageCode: message.from?.language_code,
             text,
             command,
             commandArgs,
@@ -92,7 +108,9 @@ export function parseTelegramUpdate(update: TelegramUpdate): NormalizedMessage |
             platform: PLATFORMS.TELEGRAM,
             chatId: callback.message?.chat.id.toString() ?? 'unknown',
             userId: callback.from.id.toString(),
-            userName: callback.from.first_name,
+            firstName: callback.from.first_name,
+            username: callback.from.username,
+            languageCode: callback.from.language_code,
             text: callback.data ?? '',
             callbackData: callback.data,
             callbackQueryId: callback.id,
@@ -140,6 +158,8 @@ export async function telegramWebhook(req: Request, res: Response): Promise<void
 
         if (response.type === 'welcome') {
             await telegramClient.sendWelcomeMessage(message.chatId);
+            // Send persistent reply keyboard after welcome
+            await telegramClient.sendReplyKeyboard(message.chatId);
         } else if (response.type === 'help') {
             const country = (response as { country?: string }).country ?? 'WHO';
             await telegramClient.sendHelpMessage(message.chatId, country);
@@ -150,6 +170,8 @@ export async function telegramWebhook(req: Request, res: Response): Promise<void
         } else if (response.type === 'country_confirmed') {
             const country = (response as { country?: string }).country ?? 'WHO';
             await telegramClient.sendCountryConfirmation(message.chatId, country);
+            // Send persistent reply keyboard after region set
+            await telegramClient.sendReplyKeyboard(message.chatId);
         } else {
             // Regular text response
             await telegramClient.sendBotResponse(message.chatId, response);

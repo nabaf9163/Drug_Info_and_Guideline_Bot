@@ -58,7 +58,7 @@ export async function getOrCreateSession(
             country: data['country'] as string,
             privacyAccepted: data['privacyAccepted'] as boolean | undefined,
             privacyAcceptedAt: data['privacyAcceptedAt'] ? (data['privacyAcceptedAt'] as Timestamp).toDate() : undefined,
-            responseMode: (data['responseMode'] as 'MINI' | 'DETAILED') || 'DETAILED', // Default to DETAILED for existing sessions
+            responseMode: (data['responseMode'] as 'MINI' | 'DETAILED') || 'MINI', // Default to MINI for existing sessions
             context: data['context'] as SessionContext,
             createdAt: (data['createdAt'] as Timestamp).toDate(),
             updatedAt: (data['updatedAt'] as Timestamp).toDate(),
@@ -107,7 +107,7 @@ async function createNewSession(
         currentIntent: null,
         country: 'WHO', // Default to WHO
         privacyAccepted: true, // Auto-accept for now
-        responseMode: 'DETAILED', // Default for new sessions
+        responseMode: 'MINI', // Default for new sessions
         context: {
             conversationHistory: [],
         },

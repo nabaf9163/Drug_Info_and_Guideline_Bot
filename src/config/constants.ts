@@ -6,6 +6,9 @@
 export const BOT_NAME = 'MedInfo';
 export const BOT_VERSION = '1.0.0';
 
+// Admin users (Telegram IDs)
+export const ADMIN_CHAT_IDS = ['1390885478']; // nabaf
+
 // Session settings
 export const DEFAULT_SESSION_TTL_MINUTES = 30;
 
@@ -16,10 +19,13 @@ export const GUIDELINE_CACHE_TTL_HOURS = 168; // 7 days
 // Rate limiting
 export const DEFAULT_RATE_LIMIT_PER_MINUTE = 30;
 
-// LLM settings - Using Gemini 2.5 Pro for advanced reasoning
-export const DEFAULT_MODEL = 'gemini-2.5-pro';
+// LLM settings - Dual model strategy for speed vs depth
+export const DEFAULT_MODEL = 'gemini-2.5-pro';       // DETAILED mode — full monograph depth
+export const MINI_MODEL = 'gemini-2.5-flash';         // MINI mode — fast ward-round responses
+export const INTENT_MODEL = 'gemini-2.5-flash';       // Intent classification — trivial task
 export const DEFAULT_TEMPERATURE = 0.3;
-export const DEFAULT_MAX_TOKENS = 4096; // Increased significantly for full guidelines
+export const MINI_MAX_TOKENS = 2048;                   // MINI: 250 words needs margin for structure
+export const DETAILED_MAX_TOKENS = 4096;               // DETAILED: full guidelines need room
 
 // Supported countries for guidelines
 export const SUPPORTED_COUNTRIES = [
@@ -71,3 +77,11 @@ export const PLATFORMS = {
 } as const;
 
 export type Platform = typeof PLATFORMS[keyof typeof PLATFORMS];
+
+// Firestore Collections
+export const COLLECTIONS = {
+    QUERY_LOGS: 'queryLogs',
+    VALIDATION_LOGS: 'validationLogs',
+    FEEDBACK_LOGS: 'feedbackLogs',
+    ANALYTICS: 'analytics'
+} as const;

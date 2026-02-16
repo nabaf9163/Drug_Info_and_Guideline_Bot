@@ -28,6 +28,7 @@ export interface BotResponse {
     // Metrics
     processingTimeMs: number;
     tokensUsed: number;
+    modelUsed?: string;
 }
 
 export interface InlineButton {
@@ -48,9 +49,10 @@ export interface LLMContext {
         drugs?: string[];
         conditions?: string[];
         patientParams?: {
-            age?: number;
-            weight?: number;
-            renalFunction?: number;
+            age?: string | number;
+            weight?: string | number;
+            renalFunction?: string | number;
+            isPediatric?: boolean;
         };
     };
     conversationHistory: Array<{

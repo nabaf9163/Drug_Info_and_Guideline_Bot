@@ -16,6 +16,19 @@ interface TelegramInlineButton {
 }
 
 /**
+ * Persistent Reply Keyboard layout (shown below text input)
+ */
+const REPLY_KEYBOARD = {
+    keyboard: [
+        [{ text: '💊 Drug Info' }, { text: '⚠️ Interaction' }],
+        [{ text: '💉 Dosage' }, { text: '📋 Guidelines' }],
+        [{ text: '🌍 Change Region' }, { text: '❓ Help' }],
+    ],
+    resize_keyboard: true,
+    is_persistent: true,
+};
+
+/**
  * Send a text message via Telegram
  */
 export async function sendMessage(
@@ -203,7 +216,7 @@ Now you can ask me anything\\! Try:
 
 ⚕️ _For healthcare professionals only\\. Always verify with official sources\\._`;
 
-    await sendMessage(chatId, text, { parseMode: 'MarkdownV2' });
+    await sendMessage(chatId, text, { parseMode: 'MarkdownV2', replyMarkup: REPLY_KEYBOARD });
 }
 
 /**
@@ -236,7 +249,7 @@ export async function sendHelpMessage(chatId: string, currentCountry: string): P
 
 🌍 Current region: ${escapeMarkdown(countryDisplay)}`;
 
-    await sendMessage(chatId, text, { parseMode: 'MarkdownV2' });
+    await sendMessage(chatId, text, { parseMode: 'MarkdownV2', replyMarkup: REPLY_KEYBOARD });
 }
 
 /**
@@ -249,6 +262,8 @@ export async function sendBotResponse(
     const text = response.formattedText.telegram || escapeMarkdown(response.text);
 
     if (response.inlineButtons?.length) {
+        // MINI response: show inline Expand button + reply keyboard via separate calls
+        // (Telegram only allows one reply_markup type per message)
         const buttons = response.inlineButtons.map(row =>
             row.map(btn => ({
                 text: btn.text,
@@ -257,8 +272,20 @@ export async function sendBotResponse(
         );
         await sendMessageWithButtons(chatId, text, buttons);
     } else {
-        await sendMessage(chatId, text);
+        // DETAILED/expand response: no inline buttons, attach reply keyboard
+        await sendMessage(chatId, text, {
+            replyMarkup: REPLY_KEYBOARD,
+        });
     }
+}
+
+/**
+ * Send/activate the persistent Reply Keyboard for a chat
+ */
+export async function sendReplyKeyboard(chatId: string): Promise<void> {
+    await sendMessage(chatId, '⌨️ Quick actions are now available below.', {
+        replyMarkup: REPLY_KEYBOARD,
+    });
 }
 
 /**

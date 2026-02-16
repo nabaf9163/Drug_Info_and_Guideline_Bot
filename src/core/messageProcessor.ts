@@ -6,9 +6,13 @@
 
 import type { NormalizedMessage, Session } from '../types/message.types.js';
 import type { BotResponse } from '../types/response.types.js';
-import { INTENTS, SESSION_STATES, SUPPORTED_COUNTRIES } from '../config/constants.js';
+import { INTENTS, SESSION_STATES, SUPPORTED_COUNTRIES, ADMIN_CHAT_IDS } from '../config/constants.js';
 import * as sessionService from '../services/session.service.js';
 import * as llmService from '../services/llm.service.js';
+import * as extractionService from '../services/extraction.service.js';
+import { trackingService } from '../services/tracking.service.js';
+import { analyticsService } from '../services/analytics.service.js';
+
 
 /**
  * Process an incoming message and generate a response
@@ -97,6 +101,27 @@ async function handleCommand(
     const command = message.command?.replace('/', '').toLowerCase();
 
     switch (command) {
+        case 'stats':
+            // Admin-only command
+            if (!ADMIN_CHAT_IDS.includes(message.chatId)) {
+                return createResponse(`Unknown command: ${command}. Type /help for available commands.`, startTime);
+            }
+
+            // Fetch stats (default to last 24 hours)
+            const stats = await analyticsService.getStats(1);
+
+            const statsText =
+                `📊 **MedInfo Stats** (${stats.period})\n\n` +
+                `👥 **Volume:** ${stats.totalQueries} queries\n` +
+                `⏱ **Latency:** ${stats.avgLatencyMs}ms avg\n` +
+                `🌍 **Top Region:** ${stats.topRegion}\n` +
+                `✅ **Validation:** ${stats.validationPassRate}% pass\n` +
+                `👍 **Feedback:** ${stats.feedbackScore}% positive\n\n` +
+                `**Models:**\n${Object.entries(stats.modelUsage).map(([k, v]) => `• ${k}: ${v}`).join('\n') || '• No data'}\n\n` +
+                `**Platforms:**\n${Object.entries(stats.platformBreakdown).map(([k, v]) => `• ${k}: ${v}`).join('\n') || '• No data'}`;
+
+            return createResponse(statsText, startTime);
+
         case 'start':
             // Reset session state to awaiting country
             await sessionService.updateSession(session.sessionId, {
@@ -166,16 +191,8 @@ async function handleCommand(
             return createResponse('Please specify a condition. Example: /guideline hypertension', startTime);
 
         case 'mode':
-            if (message.commandArgs?.length) {
-                const mode = message.commandArgs[0].toUpperCase();
-                if (mode === 'MINI' || mode === 'DETAILED') {
-                    await sessionService.updateSession(session.sessionId, {
-                        responseMode: mode,
-                    });
-                    return createResponse(`✅ Response mode set to: **${mode}**`, startTime);
-                }
-            }
-            return createResponse('Please specify mode. Example: /mode mini or /mode detailed', startTime);
+            // Mode switching is deprecated — users now use the "Expand" button
+            return createResponse('💡 Responses are now concise by default.\n\nTap the "📖 Expand this" button after any response to get a detailed breakdown.', startTime);
 
         default:
             return createResponse(`Unknown command: ${command}. Type /help for available commands.`, startTime);
@@ -202,7 +219,68 @@ async function handleCallback(
 
     // Handle quick action commands
     if (action === 'cmd') {
+        const intent = value; // Default assumption, might be overridden
+
         switch (value) {
+            case 'good': {
+                // Log positive feedback
+                const feedbackIntent = (message.callbackData ?? '').split(':')[2] || 'UNKNOWN';
+                trackingService.logFeedback({
+                    sessionId: session.sessionId,
+                    userId: message.userId,
+                    intent: feedbackIntent,
+                    mode: session.responseMode || 'MINI',
+                    country: session.country,
+                    rating: 'positive'
+                }).catch(err => console.error('[tracking] Failed to log feedback:', err));
+
+                return createResponse('✅ Thanks for the feedback!', startTime, { type: 'text' });
+            }
+
+            case 'bad': {
+                // Check if reason is already provided (cmd:bad:intent:reason)
+                const parts = (message.callbackData ?? '').split(':');
+                const feedbackIntent = parts[2] || 'UNKNOWN';
+                const reason = parts[3];
+
+                if (reason) {
+                    // Log negative feedback with reason
+                    trackingService.logFeedback({
+                        sessionId: session.sessionId,
+                        userId: message.userId,
+                        intent: feedbackIntent,
+                        mode: session.responseMode || 'MINI',
+                        country: session.country,
+                        rating: 'negative',
+                        reason: reason
+                    }).catch(err => console.error('[tracking] Failed to log feedback:', err));
+
+                    return createResponse('✅ Thanks for helping us improve!', startTime, { type: 'text' });
+                }
+
+                // If no reason, show reason buttons
+                // "What went wrong?"
+                const reasonButtons = [
+                    [
+                        { text: 'Incomplete', callbackData: `cmd:bad:${feedbackIntent}:incomplete` },
+                        { text: 'Inaccurate', callbackData: `cmd:bad:${feedbackIntent}:inaccurate` },
+                    ],
+                    [
+                        { text: 'Too Slow', callbackData: `cmd:bad:${feedbackIntent}:slow` },
+                        { text: 'Other', callbackData: `cmd:bad:${feedbackIntent}:other` },
+                    ]
+                ];
+
+                return {
+                    text: 'What went wrong?',
+                    formattedText: { telegram: 'What went wrong?', whatsapp: 'What went wrong?' },
+                    inlineButtons: reasonButtons,
+                    fromCache: false,
+                    processingTimeMs: Date.now() - startTime,
+                    tokensUsed: 0,
+                };
+            }
+
             case 'drug':
                 return createResponse('Please specify a drug name. Example: "/drug metformin" or just ask "What is metformin?"', startTime);
             case 'interact':
@@ -216,11 +294,62 @@ async function handleCallback(
                 });
                 return createResponse('__COUNTRY_SELECT__', startTime, { type: 'country_select' });
             case 'mode':
-                const newMode = session.responseMode === 'MINI' ? 'DETAILED' : 'MINI';
-                await sessionService.updateSession(session.sessionId, {
-                    responseMode: newMode,
+            case 'expand': {
+                // One-shot expand: re-query a specific topic in DETAILED mode
+                // Parse the optional turn index from callback data (e.g. "expand:4")
+                const expandParts = (message.callbackData ?? '').split(':');
+                const turnIndex = expandParts.length >= 3 ? parseInt(expandParts[2], 10) : NaN;
+                const history = session.context.conversationHistory;
+
+                let targetUserTurn;
+                let targetAssistantTurn;
+
+                if (!isNaN(turnIndex) && turnIndex >= 0 && turnIndex < history.length) {
+                    // Use the specific turns referenced by the Expand button
+                    targetUserTurn = history[turnIndex];
+                    targetAssistantTurn = history[turnIndex + 1];
+                } else {
+                    // Fallback: use the last user/assistant turns
+                    targetUserTurn = history.filter(t => t.role === 'user').pop();
+                    targetAssistantTurn = history.filter(t => t.role === 'assistant').pop();
+                }
+
+                if (!targetUserTurn || !targetAssistantTurn) {
+                    return createResponse('Nothing to expand yet. Ask me a question first!', startTime);
+                }
+
+                // Generate an expanded DETAILED response based on the previous MINI
+                const expandResponse = await llmService.generateResponse({
+                    sessionId: session.sessionId,
+                    userCountry: session.country,
+                    userMode: 'DETAILED',
+                    intent: session.currentIntent || 'DRUG_INFO',
+                    userMessage: targetUserTurn.content,
+                    extractedEntities: {},
+                    conversationHistory: session.context.conversationHistory.map(turn => ({
+                        role: turn.role,
+                        content: turn.content,
+                    })),
                 });
-                return createResponse(`✅ Switched to **${newMode}** mode.`, startTime);
+
+                // Save to history
+                await sessionService.addConversationTurn(session.sessionId, {
+                    role: 'assistant',
+                    content: expandResponse.text,
+                    timestamp: new Date(),
+                });
+
+                return {
+                    text: expandResponse.text,
+                    formattedText: {
+                        telegram: expandResponse.text,
+                        whatsapp: expandResponse.text,
+                    },
+                    fromCache: false,
+                    processingTimeMs: Date.now() - startTime,
+                    tokensUsed: expandResponse.tokensUsed.total,
+                };
+            }
         }
     }
 
@@ -249,15 +378,26 @@ async function processQuery(
             state: SESSION_STATES.PROCESSING,
         });
 
+        // Extract structured entities (age, weight)
+        const patientParams = extractionService.extractPatientParams(message.text || '');
+        console.log('[processQuery] Extracted params:', JSON.stringify(patientParams));
+
         // Generate response using LLM
         console.log('[processQuery] Generating LLM response...');
         const llmResponse = await llmService.generateResponse({
             sessionId: session.sessionId,
             userCountry: session.country,
-            userMode: session.responseMode || 'DETAILED',
+            userMode: session.responseMode || 'MINI',
             intent,
             userMessage: message.text,
-            extractedEntities: {},
+            extractedEntities: {
+                patientParams: {
+                    age: patientParams.age,
+                    weight: patientParams.weight,
+                    renalFunction: patientParams.renalFunction,
+                    isPediatric: patientParams.isPediatric
+                }
+            },
             conversationHistory: session.context.conversationHistory.map(turn => ({
                 role: turn.role,
                 content: turn.content,
@@ -284,28 +424,18 @@ async function processQuery(
 
         console.log('[processQuery] Returning response');
 
-        // Dynamic Mode Button
-        const nextMode = session.responseMode === 'MINI' ? 'DETAILED' : 'MINI';
-        const modeEmoji = session.responseMode === 'MINI' ? '📖' : '⚡';
-        const modeLabel = `${modeEmoji} Switch to ${nextMode}`;
-
-        // Quick action buttons
+        // Inline button: "Expand this" with the user turn index so we expand the correct query
+        // The user turn was just added at the current history length minus 2 (user, then assistant)
+        const userTurnIndex = session.context.conversationHistory.length;
         const quickActions = [
             [
-                { text: '💊 Drug Info', callbackData: 'cmd:drug' },
-                { text: '⚠️ Interaction', callbackData: 'cmd:interact' }
-            ],
-            [
-                { text: '💉 Dosage', callbackData: 'cmd:dose' },
-                { text: '📋 Guidelines', callbackData: 'cmd:guideline' }
-            ],
-            [
-                { text: modeLabel, callbackData: 'cmd:mode' },
-                { text: '🌍 Change Region', callbackData: 'cmd:country' }
+                { text: '📖 Expand this', callbackData: `cmd:expand:${userTurnIndex}` },
+                { text: '👍', callbackData: `cmd:good:${intent}` },
+                { text: '👎', callbackData: `cmd:bad:${intent}` },
             ]
         ];
 
-        return {
+        const response: BotResponse = {
             text: llmResponse.text,
             formattedText: {
                 telegram: llmResponse.text,
@@ -315,7 +445,21 @@ async function processQuery(
             fromCache: false,
             processingTimeMs: Date.now() - startTime,
             tokensUsed: llmResponse.tokensUsed.total,
+            modelUsed: llmResponse.modelUsed,
         };
+
+        // Fire-and-forget query logging
+        trackingService.logQuery({
+            message,
+            sessionId: session.sessionId,
+            country: session.country || 'unknown',
+            intent,
+            mode: session.responseMode || 'MINI',
+            response: response,
+            drugsDetected: patientParams.age ? [] : undefined // Placeholder, extraction service needs update to return drugs
+        }).catch(err => console.error('[tracking] Failed to log query:', err));
+
+        return response;
     } catch (error) {
         console.error('[processQuery] ERROR:', error);
         console.error('[processQuery] Stack:', error instanceof Error ? error.stack : 'no stack');

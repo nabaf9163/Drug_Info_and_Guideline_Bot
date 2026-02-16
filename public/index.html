@@ -2,181 +2,806 @@
 <html lang="en">
 
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-S5MJ4NGJZ8"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-S5MJ4NGJZ8');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MedInfo Bot - AI Clinical Assistant</title>
+    <title>MedInfo — AI Clinical Decision Support</title>
+    <meta name="description"
+        content="MedInfo is an AI-powered clinical decision support assistant for healthcare professionals. Get instant drug info, interaction checks, dosing calculators, and clinical guidelines on Telegram and WhatsApp.">
+    <meta name="keywords"
+        content="MedInfo, clinical assistant, drug information, drug interactions, dosing calculator, clinical guidelines, healthcare AI, pharmacist tool">
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" href="/logo.png">
+    <meta property="og:image" content="https://medinfo-bot.web.app/logo.png">
+    <meta property="og:title" content="MedInfo — AI Clinical Decision Support">
+    <meta property="og:description"
+        content="Get instant drug info, interaction checks, and clinical guidelines on Telegram and WhatsApp.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         :root {
-            --primary: #25D366;
-            /* WhatsApp Green */
-            --dark: #128C7E;
-            --light: #DCF8C6;
-            --text: #333;
-            --bg: #f0f2f5;
+            --bg-dark: #0a0e1a;
+            --bg-card: rgba(255, 255, 255, 0.04);
+            --bg-card-hover: rgba(255, 255, 255, 0.08);
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-telegram: #26A5E4;
+            --accent-whatsapp: #25D366;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: rgba(255, 255, 255, 0.06);
+            --glow-blue: rgba(59, 130, 246, 0.15);
+            --glow-green: rgba(16, 185, 129, 0.15);
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
             line-height: 1.6;
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg);
-            color: var(--text);
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        header {
-            background-color: white;
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        /* Animated gradient background */
+        .bg-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .bg-glow::before {
+            content: '';
+            position: absolute;
+            top: -30%;
+            left: -10%;
+            width: 60%;
+            height: 60%;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .bg-glow::after {
+            content: '';
+            position: absolute;
+            bottom: -20%;
+            right: -10%;
+            width: 50%;
+            height: 50%;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.06) 0%, transparent 70%);
+            animation: float 25s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            33% {
+                transform: translate(30px, -30px) scale(1.05);
+            }
+
+            66% {
+                transform: translate(-20px, 20px) scale(0.95);
+            }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        /* NAV */
+        nav {
+            padding: 1.25rem 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
         .logo {
-            font-weight: bold;
-            font-size: 1.5rem;
-            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
         }
 
-        main {
-            flex: 1;
+        .logo-img {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+
+        .nav-links {
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 4rem 2rem;
+            gap: 1.5rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        /* HERO */
+        .hero {
+            padding: 5rem 0 4rem;
             text-align: center;
         }
 
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            color: var(--dark);
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            border-radius: 100px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            font-weight: 500;
+            margin-bottom: 1.75rem;
+            animation: fadeInUp 0.6s ease;
         }
 
-        p.subtitle {
-            font-size: 1.25rem;
-            color: #666;
-            max-width: 600px;
+        .badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 1.25rem;
+            animation: fadeInUp 0.6s ease 0.1s both;
+        }
+
+        .hero h1 .gradient-text {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero .subtitle {
+            font-size: 1.15rem;
+            color: var(--text-secondary);
+            max-width: 560px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.7;
+            animation: fadeInUp 0.6s ease 0.2s both;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* CTA BUTTONS */
+        .cta-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 0.6s ease 0.3s both;
+        }
+
+        .cta-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.9rem 1.75rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.25s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .cta-btn svg {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .cta-telegram {
+            background: var(--accent-telegram);
+            color: white;
+            box-shadow: 0 4px 20px rgba(38, 165, 228, 0.3);
+        }
+
+        .cta-telegram:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(38, 165, 228, 0.4);
+        }
+
+        .cta-whatsapp {
+            background: var(--accent-whatsapp);
+            color: white;
+            box-shadow: 0 4px 20px rgba(37, 211, 102, 0.3);
+        }
+
+        .cta-whatsapp:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(37, 211, 102, 0.4);
+        }
+
+        /* SOCIAL PROOF */
+        .social-proof {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 3rem;
+            animation: fadeInUp 0.6s ease 0.4s both;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-divider {
+            width: 1px;
+            height: 32px;
+            background: var(--border);
+        }
+
+        /* FEATURES */
+        .features-section {
+            padding: 4rem 0;
+        }
+
+        .section-label {
+            text-align: center;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent-cyan);
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
             margin-bottom: 3rem;
         }
 
-        .cta-button {
-            display: inline-block;
-            background-color: var(--primary);
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 1.1rem;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 6px rgba(37, 211, 102, 0.3);
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(37, 211, 102, 0.4);
-        }
-
-        .features {
+        .features-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            max-width: 1000px;
-            width: 100%;
-            margin-top: 4rem;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.25rem;
         }
 
         .feature-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-4px);
         }
 
         .feature-icon {
-            font-size: 2rem;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
             margin-bottom: 1rem;
-            display: block;
         }
 
-        footer {
-            background-color: white;
-            padding: 2rem;
+        .feature-icon.blue {
+            background: var(--glow-blue);
+        }
+
+        .feature-icon.green {
+            background: var(--glow-green);
+        }
+
+        .feature-icon.cyan {
+            background: rgba(6, 182, 212, 0.15);
+        }
+
+        .feature-icon.amber {
+            background: rgba(245, 158, 11, 0.15);
+        }
+
+        .feature-card h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-card p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* HOW IT WORKS */
+        .how-section {
+            padding: 4rem 0;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .step {
             text-align: center;
-            margin-top: auto;
-            border-top: 1px solid #eee;
+            position: relative;
+        }
+
+        .step-number {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin: 0 auto 1rem;
+        }
+
+        .step h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .step p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* DEMO PREVIEW */
+        .demo-section {
+            padding: 4rem 0;
+        }
+
+        .demo-box {
+            max-width: 480px;
+            margin: 2rem auto 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .demo-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+
+        .demo-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: contain;
+            background: white;
+        }
+
+        .demo-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .demo-status {
+            font-size: 0.7rem;
+            color: var(--accent-green);
+        }
+
+        .msg {
+            padding: 0.7rem 1rem;
+            border-radius: 14px;
+            margin-bottom: 0.6rem;
+            max-width: 85%;
+            line-height: 1.5;
+            font-size: 0.85rem;
+        }
+
+        .msg-user {
+            background: var(--accent-blue);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .msg-bot {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg-bot .emoji-label {
+            font-weight: 600;
+        }
+
+        /* BOTTOM CTA */
+        .bottom-cta {
+            padding: 4rem 0;
+            text-align: center;
+        }
+
+        .bottom-cta h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.75rem;
+        }
+
+        .bottom-cta p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            font-size: 1.05rem;
+        }
+
+        /* FOOTER */
+        footer {
+            padding: 2rem 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .footer-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .footer-copy {
+            font-size: 0.8rem;
+            color: var(--text-muted);
         }
 
         .footer-links {
             display: flex;
-            justify-content: center;
-            gap: 2rem;
-            margin-top: 1rem;
+            gap: 1.5rem;
+            list-style: none;
         }
 
         .footer-links a {
-            color: #666;
+            color: var(--text-muted);
             text-decoration: none;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
+            transition: color 0.2s;
         }
 
         .footer-links a:hover {
-            color: var(--dark);
-            text-decoration: underline;
+            color: var(--text-secondary);
+        }
+
+        /* MOBILE */
+        @media (max-width: 640px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 3rem 0 2.5rem;
+            }
+
+            .cta-group {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .cta-btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+
+            .social-proof {
+                gap: 1rem;
+            }
+
+            .stat-value {
+                font-size: 1.2rem;
+            }
+
+            .footer-content {
+                flex-direction: column;
+            }
+
+            .steps {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 
 <body>
-    <header>
-        <a href="/" class="logo">MedInfo Bot</a>
-    </header>
+    <div class="bg-glow"></div>
 
-    <main>
-        <h1>Your AI Clinical Assistant</h1>
-        <p class="subtitle">
-            Get instant drug information, interaction checks, and clinical guidelines directly on WhatsApp.
-            Designed for healthcare professionals.
-        </p>
+    <div class="container">
+        <!-- NAV -->
+        <nav>
+            <a href="/" class="logo">
+                <img src="/logo.png" alt="MedInfo" class="logo-img">
+                MedInfo
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how">How it works</a></li>
+                <li><a href="#demo">Preview</a></li>
+                <li><a href="mailto:nabaf91@gmail.com">Contact</a></li>
+            </ul>
+        </nav>
 
-        <a href="https://wa.me/233508829425" class="cta-button">
-            Chat on WhatsApp 💬
-        </a>
-
-        <div class="features">
-            <div class="feature-card">
-                <span class="feature-icon">💊</span>
-                <h3>Drug Info</h3>
-                <p>Detailed dosing, side effects, and contraindications.</p>
+        <!-- HERO -->
+        <section class="hero">
+            <div class="badge">
+                <span class="dot"></span>
+                AI-Powered Clinical Support
             </div>
-            <div class="feature-card">
-                <span class="feature-icon">⚠️</span>
-                <h3>Interaction Checker</h3>
-                <p>Instant safety checks for drug combinations.</p>
-            </div>
-            <div class="feature-card">
-                <span class="feature-icon">📋</span>
-                <h3>Clinical Guidelines</h3>
-                <p>Access national and WHO treatment protocols.</p>
-            </div>
-        </div>
-    </main>
+            <h1>
+                Your pocket<br>
+                <span class="gradient-text">clinical assistant</span>
+            </h1>
+            <p class="subtitle">
+                MedInfo delivers instant drug information, interaction checks, dosing calculators, and clinical
+                guidelines — right inside your favorite messaging app.
+            </p>
 
+            <div class="cta-group">
+                <a href="https://t.me/Nab_MedInfo_bot" target="_blank" class="cta-btn cta-telegram">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
+                    </svg>
+                    Open in Telegram
+                </a>
+                <a href="https://wa.me/233508829425" target="_blank" class="cta-btn cta-whatsapp">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                    </svg>
+                    Open in WhatsApp
+                </a>
+            </div>
+
+            <div class="social-proof">
+                <div class="stat">
+                    <div class="stat-value">2026</div>
+                    <div class="stat-label">Guidelines</div>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <div class="stat-value">24/7</div>
+                    <div class="stat-label">Available</div>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <div class="stat-value">Free</div>
+                    <div class="stat-label">To use</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FEATURES -->
+        <section class="features-section" id="features">
+            <div class="section-label">Capabilities</div>
+            <h2 class="section-title">Everything you need at the bedside</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon blue">💊</div>
+                    <h3>Drug Information</h3>
+                    <p>Comprehensive dosing, pharmacology, side effects, and contraindications for thousands of
+                        medications.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon amber">⚠️</div>
+                    <h3>Interaction Checker</h3>
+                    <p>Instant drug-drug interaction checks with severity ratings, mechanisms, and clinical management
+                        advice.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon cyan">📋</div>
+                    <h3>Clinical Guidelines</h3>
+                    <p>Access national and WHO treatment protocols with resistance-aware recommendations for your
+                        region.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon green">💉</div>
+                    <h3>Dosage Calculator</h3>
+                    <p>Adult and pediatric (mg/kg) dosing with renal adjustments. Weight-based calculations built in.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS -->
+        <section class="how-section" id="how">
+            <div class="section-label">Getting started</div>
+            <h2 class="section-title">Up and running in seconds</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Open the bot</h3>
+                    <p>Tap the Telegram or WhatsApp button above to start a chat with MedInfo.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Set your region</h3>
+                    <p>Select your country so MedInfo can prioritize the correct national guidelines.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Ask anything</h3>
+                    <p>Type your clinical question naturally — just like asking a colleague on the ward.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- DEMO -->
+        <section class="demo-section" id="demo">
+            <div class="section-label">See it in action</div>
+            <h2 class="section-title">A quick preview</h2>
+            <div class="demo-box">
+                <div class="demo-header">
+                    <img src="/logo.png" alt="MedInfo" class="demo-avatar">
+                    <div>
+                        <div class="demo-name">MedInfo</div>
+                        <div class="demo-status">● Online</div>
+                    </div>
+                </div>
+                <div class="msg msg-user">What is metformin used for?</div>
+                <div class="msg msg-bot">
+                    <span class="emoji-label">💊 INDICATION</span><br>
+                    • Type 2 Diabetes Mellitus (first-line)<br>
+                    • PCOS (off-label)<br><br>
+                    <span class="emoji-label">💉 DOSE</span><br>
+                    • Adult: Start 500 mg BID, max 2550 mg/day<br>
+                    • Pediatric (≥10y): 500 mg BID, max 2000 mg/day<br><br>
+                    <span class="emoji-label">⚠️ MONITOR</span><br>
+                    • eGFR at baseline + annually<br>
+                    • HbA1c every 3–6 months<br><br>
+                    ⚕️ Verify with official sources
+                </div>
+            </div>
+        </section>
+
+        <!-- BOTTOM CTA -->
+        <section class="bottom-cta">
+            <h2>Ready to try MedInfo?</h2>
+            <p>Start chatting now — no sign-up required.</p>
+            <div class="cta-group">
+                <a href="https://t.me/Nab_MedInfo_bot" target="_blank" class="cta-btn cta-telegram">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
+                    </svg>
+                    Open in Telegram
+                </a>
+                <a href="https://wa.me/233508829425" target="_blank" class="cta-btn cta-whatsapp">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                    </svg>
+                    Open in WhatsApp
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <!-- FOOTER -->
     <footer>
-        <div class="copyright">
-            &copy; 2026 NABAF Ventures. All rights reserved.
-        </div>
-        <div class="footer-links">
-            <a href="/privacy.html">Privacy Policy</a>
-            <a href="/terms.html">Terms of Service</a>
-            <a href="mailto:nabaf91@gmail.com">Contact Support</a>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-copy">&copy; 2026 NABAF Ventures. All rights reserved.</div>
+                <ul class="footer-links">
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                    <li><a href="mailto:nabaf91@gmail.com">Support</a></li>
+                </ul>
+            </div>
         </div>
     </footer>
 </body>
