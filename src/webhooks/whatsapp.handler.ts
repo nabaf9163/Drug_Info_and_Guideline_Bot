@@ -156,8 +156,7 @@ export async function whatsappWebhook(req: Request, res: Response): Promise<void
             return;
         }
 
-        // Respond 200 OK immediately to prevent WhatsApp retries
-        res.status(200).send('OK');
+
 
         const payload = req.body as WhatsAppWebhookPayload;
 
@@ -165,6 +164,7 @@ export async function whatsappWebhook(req: Request, res: Response): Promise<void
         const message = parseWhatsAppPayload(payload);
 
         if (!message) {
+            res.status(200).send('OK');
             return;
         }
 
@@ -179,7 +179,7 @@ export async function whatsappWebhook(req: Request, res: Response): Promise<void
         // Route response to appropriate WhatsApp method
         console.log('[DEBUG] Routing response, text:', JSON.stringify(response.text));
 
-        const responseText = response.text.trim();
+        // const responseText = response.text.trim(); // Unused
 
         if (response.type === 'welcome') {
             await whatsappClient.sendWelcomeMessage(message.chatId);
@@ -198,9 +198,13 @@ export async function whatsappWebhook(req: Request, res: Response): Promise<void
         }
 
         console.log('Processed WhatsApp message:', message.messageId);
+        res.status(200).send('OK');
 
     } catch (error) {
         console.error('WhatsApp webhook error:', error);
-        // Response already sent
+        // Ensure request ends even on error, to avoid hanging
+        if (!res.headersSent) {
+            res.status(200).send('OK'); // Always return 200 to WhatsApp to stop retries on error
+        }
     }
 }

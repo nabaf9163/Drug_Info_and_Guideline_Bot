@@ -41,6 +41,7 @@ export interface InlineButton {
 export interface LLMContext {
     sessionId: string;
     userCountry: string;
+    userMode: 'MINI' | 'DETAILED';
     intent: string;
     userMessage: string;
     extractedEntities: {

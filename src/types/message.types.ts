@@ -49,6 +49,7 @@ export interface Session {
 
     // User preferences
     country: string;
+    responseMode: 'MINI' | 'DETAILED';
     privacyAccepted?: boolean;
     privacyAcceptedAt?: Date;
 

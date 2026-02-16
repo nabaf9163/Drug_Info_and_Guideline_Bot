@@ -52,6 +52,15 @@ export async function processMessage(message: NormalizedMessage): Promise<BotRes
             );
 
         case SESSION_STATES.AWAITING_COUNTRY:
+            // DISABLED: Defaulting to WHO by user request
+            // Auto-set country and process query
+            console.log('[processMessage] Country selection disabled. Defaulting to WHO.');
+            await sessionService.setSessionCountry(session.sessionId, 'WHO');
+
+            // Fallthrough to process query immediately
+            return processQuery(message, session, startTime);
+
+        /* DISABLED: Old logic
             // Try to parse country from text
             const countryMatch = findCountryInText(message.text);
             if (countryMatch) {
@@ -67,6 +76,7 @@ export async function processMessage(message: NormalizedMessage): Promise<BotRes
                 startTime,
                 { type: 'country_select' }
             );
+        */
 
         case SESSION_STATES.IDLE:
         default:
@@ -153,6 +163,20 @@ async function handleCommand(
             }
             return createResponse('Please specify a condition. Example: /guideline hypertension', startTime);
 
+            return createResponse('Please specify a condition. Example: /guideline hypertension', startTime);
+
+        case 'mode':
+            if (message.commandArgs?.length) {
+                const mode = message.commandArgs[0].toUpperCase();
+                if (mode === 'MINI' || mode === 'DETAILED') {
+                    await sessionService.updateSession(session.sessionId, {
+                        responseMode: mode,
+                    });
+                    return createResponse(`✅ Response mode set to: **${mode}**`, startTime);
+                }
+            }
+            return createResponse('Please specify mode. Example: /mode mini or /mode detailed', startTime);
+
         default:
             return createResponse(`Unknown command: ${command}. Type /help for available commands.`, startTime);
     }
@@ -185,13 +209,18 @@ async function handleCallback(
                 return createResponse('Please specify drugs to check. Example: "/interact warfarin, aspirin"', startTime);
             case 'dose':
                 return createResponse('Please specify drug and details. Example: "/dose amoxicillin 15kg child"', startTime);
-            case 'guideline':
                 return createResponse('Please specify a condition. Example: "/guideline hypertension"', startTime);
             case 'country':
                 await sessionService.updateSession(session.sessionId, {
                     state: SESSION_STATES.AWAITING_COUNTRY,
                 });
                 return createResponse('__COUNTRY_SELECT__', startTime, { type: 'country_select' });
+            case 'mode':
+                const newMode = session.responseMode === 'MINI' ? 'DETAILED' : 'MINI';
+                await sessionService.updateSession(session.sessionId, {
+                    responseMode: newMode,
+                });
+                return createResponse(`✅ Switched to **${newMode}** mode.`, startTime);
         }
     }
 
@@ -225,6 +254,7 @@ async function processQuery(
         const llmResponse = await llmService.generateResponse({
             sessionId: session.sessionId,
             userCountry: session.country,
+            userMode: session.responseMode || 'DETAILED',
             intent,
             userMessage: message.text,
             extractedEntities: {},
@@ -254,6 +284,11 @@ async function processQuery(
 
         console.log('[processQuery] Returning response');
 
+        // Dynamic Mode Button
+        const nextMode = session.responseMode === 'MINI' ? 'DETAILED' : 'MINI';
+        const modeEmoji = session.responseMode === 'MINI' ? '📖' : '⚡';
+        const modeLabel = `${modeEmoji} Switch to ${nextMode}`;
+
         // Quick action buttons
         const quickActions = [
             [
@@ -265,6 +300,7 @@ async function processQuery(
                 { text: '📋 Guidelines', callbackData: 'cmd:guideline' }
             ],
             [
+                { text: modeLabel, callbackData: 'cmd:mode' },
                 { text: '🌍 Change Region', callbackData: 'cmd:country' }
             ]
         ];

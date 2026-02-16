@@ -58,6 +58,7 @@ export async function getOrCreateSession(
             country: data['country'] as string,
             privacyAccepted: data['privacyAccepted'] as boolean | undefined,
             privacyAcceptedAt: data['privacyAcceptedAt'] ? (data['privacyAcceptedAt'] as Timestamp).toDate() : undefined,
+            responseMode: (data['responseMode'] as 'MINI' | 'DETAILED') || 'DETAILED', // Default to DETAILED for existing sessions
             context: data['context'] as SessionContext,
             createdAt: (data['createdAt'] as Timestamp).toDate(),
             updatedAt: (data['updatedAt'] as Timestamp).toDate(),
@@ -101,10 +102,12 @@ async function createNewSession(
         chatId,
         userId,
         // state: SESSION_STATES.AWAITING_PRIVACY, // DISABLED: Privacy flow skipped by user request
-        state: SESSION_STATES.AWAITING_COUNTRY,
+        // state: SESSION_STATES.AWAITING_COUNTRY, // DISABLED: Defaulting to WHO by user request
+        state: SESSION_STATES.IDLE,
         currentIntent: null,
-        country: config.defaultCountry,
-        privacyAccepted: false,
+        country: 'WHO', // Default to WHO
+        privacyAccepted: true, // Auto-accept for now
+        responseMode: 'DETAILED', // Default for new sessions
         context: {
             conversationHistory: [],
         },
@@ -128,7 +131,7 @@ async function createNewSession(
  */
 export async function updateSession(
     sessionId: string,
-    updates: Partial<Pick<Session, 'state' | 'currentIntent' | 'country' | 'context'>>
+    updates: Partial<Pick<Session, 'state' | 'currentIntent' | 'country' | 'context' | 'responseMode'>>
 ): Promise<void> {
     const firestore = getFirestore();
     const docRef = firestore.collection(SESSIONS_COLLECTION).doc(sessionId);
