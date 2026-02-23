@@ -8,7 +8,6 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/ge
 import type { LLMContext, LLMResponse } from '../types/response.types.js';
 import { getConfig } from '../config/environment.js';
 import { DEFAULT_MODEL, MINI_MODEL, INTENT_MODEL, DEFAULT_TEMPERATURE, MINI_MAX_TOKENS, DETAILED_MAX_TOKENS } from '../config/constants.js';
-import { trackingService } from './tracking.service.js';
 
 // Singleton Gemini client
 let genAI: GoogleGenerativeAI | null = null;
@@ -210,11 +209,6 @@ export async function generateResponse(context: LLMContext): Promise<LLMResponse
             console.log('[generateResponse] Validation warnings:', validation.warnings);
         }
 
-        // Track validation fixes for logging
-        let wasRegenerated = false;
-        let appendedFooter = false;
-        let appendedSeverity = false;
-
         // Smart validation: append fixes instead of costly regeneration
         // Only regenerate for safety-critical: missing pediatric mg/kg
         if (validation.shouldRegenerate && validation.missingElements.includes('mg/kg dosing')) {
@@ -224,16 +218,15 @@ export async function generateResponse(context: LLMContext): Promise<LLMResponse
 
             const retryResult = await model.generateContent([
                 { text: systemPrompt },
-                ...trimmedHistory, // Using trimmed history for context
+                ...trimmedHistory,
                 { text: `User: ${userPrompt}` },
                 { text: `Assistant: ${rawText}` },
                 { text: `System: ${correctionPrompt}` },
-            ] as any);
+            ]);
 
             const retryText = sanitizeOutput(retryResult.response.text());
             if (/mg\s*\/\s*kg/i.test(retryText)) {
                 text = retryText;
-                wasRegenerated = true;
                 console.log('[generateResponse] Retry fixed pediatric dosing');
             } else {
                 console.log('[generateResponse] Retry still missing mg/kg, keeping original');
@@ -243,32 +236,16 @@ export async function generateResponse(context: LLMContext): Promise<LLMResponse
         // Append safety footer if missing (instant fix, no regen needed)
         if (validation.missingElements.includes('required safety footer')) {
             text += '\n\n⚕️ Verify with official sources before clinical decisions';
-            appendedFooter = true;
             console.log('[generateResponse] Appended missing safety footer');
         }
 
         // Append severity note for interactions if missing (instant fix)
         if (validation.missingElements.includes('interaction severity classification')) {
             text += '\n\n⚠️ Please check Stockley\'s Drug Interactions for detailed severity classification.';
-            appendedSeverity = true;
             console.log('[generateResponse] Appended interaction severity note');
         }
 
         const latencyMs = Date.now() - startTime;
-
-        // Log validation results
-        trackingService.logValidation({
-            sessionId: context.sessionId,
-            validationResult: {
-                isValid: validation.valid,
-                missingElements: validation.missingElements,
-                warnings: validation.warnings,
-                regenerated: wasRegenerated,
-                appendedFooter: appendedFooter,
-                appendedSeverity: appendedSeverity
-            },
-            durationMs: latencyMs
-        }).catch((err: unknown) => console.error('[tracking] Failed to log validation:', err));
 
         const promptTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
         const completionTokens = Math.ceil(text.length / 4);
@@ -426,7 +403,7 @@ When providing drug information, cover these domains (depth based on mode):
 • Indication & therapeutic class
 • Mechanism of action
 • Dosing: Adult + Pediatric (mg/kg) + route + frequency + max dose
-• Renal/hepatic adjustments (with specific CrCl/eGFR thresholds)
+• Renal/hepatic adjustments (with specific CrCl/eGFR cutoffs)
 • Key pharmacokinetics (half-life, onset, protein binding if clinically relevant)
 • Contra-indications & cautions
 • Common and serious side effects (with BNF frequency classification if possible)

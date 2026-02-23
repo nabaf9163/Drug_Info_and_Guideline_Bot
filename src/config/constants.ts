@@ -52,6 +52,7 @@ export const INTENTS = {
     HELP: 'HELP',
     START: 'START',
     CANCEL: 'CANCEL',
+    PATIENT_COUNSELING: 'PATIENT_COUNSELING',
     UNKNOWN: 'UNKNOWN',
 } as const;
 

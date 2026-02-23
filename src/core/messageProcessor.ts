@@ -282,17 +282,20 @@ async function handleCallback(
             }
 
             case 'drug':
-                return createResponse('Please specify a drug name. Example: "/drug metformin" or just ask "What is metformin?"', startTime);
+                return createResponse('💊 *Drug Information*\n\nPlease type the name of the drug you want to know about.\n\n_Example: "Metformin"_', startTime);
             case 'interact':
-                return createResponse('Please specify drugs to check. Example: "/interact warfarin, aspirin"', startTime);
+                return createResponse('🔄 *Interaction Checker*\n\nPlease list the drugs you want to check together.\n\n_Example: "Warfarin and Aspirin"_', startTime);
             case 'dose':
-                return createResponse('Please specify drug and details. Example: "/dose amoxicillin 15kg child"', startTime);
-                return createResponse('Please specify a condition. Example: "/guideline hypertension"', startTime);
+                return createResponse('💉 *Dosage Helper*\n\nPlease tell me the drug and the patient details (weight/age).\n\n_Example: "Amoxicillin for 15kg child"_', startTime);
+            case 'guideline':
+                return createResponse('📋 *Clinical Guidelines*\n\nPlease specify the condition you need guidelines for.\n\n_Example: "Hypertension treatment"_', startTime);
             case 'country':
                 await sessionService.updateSession(session.sessionId, {
                     state: SESSION_STATES.AWAITING_COUNTRY,
                 });
                 return createResponse('__COUNTRY_SELECT__', startTime, { type: 'country_select' });
+            case 'help':
+                return createResponse('__HELP__', startTime, { type: 'help', country: session.country });
             case 'mode':
             case 'expand': {
                 // One-shot expand: re-query a specific topic in DETAILED mode

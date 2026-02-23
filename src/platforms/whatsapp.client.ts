@@ -339,6 +339,31 @@ export async function sendHelpMessage(to: string, currentCountry: string): Promi
 /**
  * Send a bot response (routes BotResponse to appropriate WhatsApp method)
  */
+const MAIN_MENU = {
+    buttonText: '☰ Menu',
+    sections: [
+        {
+            title: 'Core Functions',
+            rows: [
+                { id: 'cmd:drug', title: '💊 Drug Info', description: 'Dosing, side effects, etc.' },
+                { id: 'cmd:interact', title: '🔄 Interactions', description: 'Check drug interactions' },
+                { id: 'cmd:dose', title: '💉 Dosage Helper', description: 'Pediatric & renal dosing' },
+                { id: 'cmd:guideline', title: '📋 Guidelines', description: 'Treatment protocols' },
+            ]
+        },
+        {
+            title: 'Settings & Help',
+            rows: [
+                { id: 'cmd:country', title: '🌍 Change Region', description: 'Switch local guidelines' },
+                { id: 'cmd:help', title: '❓ Help', description: 'Show commands & tips' },
+            ]
+        }
+    ]
+};
+
+/**
+ * Send a bot response (routes BotResponse to appropriate WhatsApp method)
+ */
 export async function sendBotResponse(
     to: string,
     response: BotResponse
@@ -346,16 +371,17 @@ export async function sendBotResponse(
     // Use WhatsApp-formatted text, or fall back to plain text
     const text = response.formattedText.whatsapp || response.text;
 
-    if (response.quickReplies?.length) {
-        // Use interactive buttons for quick replies (max 3)
-        const buttons = response.quickReplies.slice(0, 3).map((reply, i) => ({
-            id: `quick_${i}_${reply}`,
-            title: reply,
-        }));
-        await sendMessageWithButtons(to, text, buttons);
-    } else {
-        await sendMessage(to, text);
-    }
+    // Send the main text message
+    await sendMessage(to, text);
+
+    // Contextual Menu (Persistent)
+    // Always append the Main Menu to allow easy navigation
+    await sendInteractiveList(
+        to,
+        'What would you like to do next?',
+        MAIN_MENU.buttonText,
+        MAIN_MENU.sections
+    );
 }
 
 /**
