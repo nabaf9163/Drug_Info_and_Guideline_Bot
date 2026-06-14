@@ -1,6 +1,6 @@
 import { getFirestore } from 'firebase-admin/firestore';
-import { BotResponse } from '../types/response.types.js';
-import { NormalizedMessage } from '../types/message.types.js';
+import type { BotResponse } from '../types/response.types.js';
+import type { NormalizedMessage } from '../types/message.types.js';
 import { COLLECTIONS } from '../config/constants.js';
 
 // Types for logging

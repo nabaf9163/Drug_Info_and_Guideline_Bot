@@ -1,4 +1,3 @@
-
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { COLLECTIONS } from '../config/constants.js';
 
@@ -72,7 +71,6 @@ export const analyticsService = {
             const topRegion = Object.entries(regionCounts)
                 .sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A';
 
-
             // 2. Fetch Feedback Logs (for approval rate)
             const feedbackSnapshot = await db.collection(COLLECTIONS.FEEDBACK_LOGS)
                 .where('timestamp', '>=', timestamp)
@@ -94,7 +92,6 @@ export const analyticsService = {
                 ? Math.round((positiveFeedback / totalFeedback) * 100)
                 : 0;
 
-
             // 3. Fetch Validation Logs (pass rate)
             const validationSnapshot = await db.collection(COLLECTIONS.VALIDATION_LOGS)
                 .where('timestamp', '>=', timestamp)
@@ -112,7 +109,6 @@ export const analyticsService = {
             const validationPassRate = validationSnapshot.size > 0
                 ? Math.round((passedValidation / validationSnapshot.size) * 100)
                 : 0;
-
 
             return {
                 period: days === 1 ? 'Last 24 Hours' : `Last ${days} Days`,

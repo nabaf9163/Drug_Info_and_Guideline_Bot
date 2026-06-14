@@ -9,6 +9,10 @@ import type { LLMContext, LLMResponse } from '../types/response.types.js';
 import { getConfig } from '../config/environment.js';
 import { DEFAULT_MODEL, MINI_MODEL, INTENT_MODEL, DEFAULT_TEMPERATURE, MINI_MAX_TOKENS, DETAILED_MAX_TOKENS } from '../config/constants.js';
 
+// Source of Truth Agent — Layers 2 & 3
+import { resolveAuthoritativeSources, buildGroundingDirective, getTemporalContext } from './grounding.agent.js';
+import { enforceEthicalBoundary, validateCitationPresence, buildCitationFooter, appendTemporalWarning, getAntiFabricationDirective } from './ethics.guard.js';
+
 // Singleton Gemini client
 let genAI: GoogleGenerativeAI | null = null;
 
@@ -152,6 +156,25 @@ export async function generateResponse(context: LLMContext): Promise<LLMResponse
     const startTime = Date.now();
     const ai = getGenAI();
 
+    // ─── Source of Truth Agent: Ethical Boundary Check ───
+    const ethicalRejection = enforceEthicalBoundary(context.userMessage);
+    if (ethicalRejection) {
+        console.log('[SoT Agent] Query rejected by ethical boundary check');
+        return {
+            text: ethicalRejection,
+            tokensUsed: { prompt: 0, completion: 0, total: 0 },
+            finishReason: 'stop',
+            modelUsed: 'ethics-guard',
+            latencyMs: Date.now() - startTime,
+        };
+    }
+
+    // ─── Source of Truth Agent: Resolve Authorities ───
+    const selectedSources = resolveAuthoritativeSources(context.userMessage, context.userCountry, context.intent);
+    const groundingDirective = buildGroundingDirective(selectedSources, context.intent, context.userCountry);
+    const temporalContext = getTemporalContext(selectedSources);
+    console.log(`[SoT Agent] Resolved ${selectedSources.length} sources for ${context.userCountry}/${context.intent}:`, selectedSources.map(s => s.shortName).join(', '));
+
     // Dual model strategy: flash for MINI (speed), pro for DETAILED (depth)
     const selectedModel = context.userMode === 'MINI' ? MINI_MODEL : DEFAULT_MODEL;
     const selectedMaxTokens = context.userMode === 'MINI' ? MINI_MAX_TOKENS : DETAILED_MAX_TOKENS;
@@ -179,7 +202,7 @@ export async function generateResponse(context: LLMContext): Promise<LLMResponse
         } as any,
     });
 
-    const systemPrompt = buildSystemPrompt(context.userCountry, context.userMode, context.intent);
+    const systemPrompt = buildSystemPrompt(context.userCountry, context.userMode, context.intent, groundingDirective, temporalContext);
     const userPrompt = buildUserPrompt(context);
 
     // Trim conversation history: 2 turns for MINI (speed), 4 for DETAILED (context)
@@ -245,6 +268,17 @@ export async function generateResponse(context: LLMContext): Promise<LLMResponse
             console.log('[generateResponse] Appended interaction severity note');
         }
 
+        // ─── Source of Truth Agent: Post-generation checks ───
+
+        // Citation validation: ensure at least one source is cited
+        if (!validateCitationPresence(text, selectedSources)) {
+            text += buildCitationFooter(selectedSources);
+            console.log('[SoT Agent] Appended citation footer (LLM did not cite sources)');
+        }
+
+        // Temporal warning: flag outdated sources
+        text = appendTemporalWarning(text, selectedSources);
+
         const latencyMs = Date.now() - startTime;
 
         const promptTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
@@ -269,8 +303,15 @@ export async function generateResponse(context: LLMContext): Promise<LLMResponse
 
 /**
  * Build the system prompt with country + intent + mode context
+ * Accepts dynamic grounding directive from Source of Truth Agent.
  */
-function buildSystemPrompt(country: string, mode: 'MINI' | 'DETAILED', intent?: string): string {
+function buildSystemPrompt(
+    country: string,
+    mode: 'MINI' | 'DETAILED',
+    intent?: string,
+    groundingDirective: string = '',
+    temporalContext: string = ''
+): string {
     const countryContext = country === 'WHO' ? 'WHO/International' : country;
 
     let prompt: string;
@@ -280,13 +321,16 @@ function buildSystemPrompt(country: string, mode: 'MINI' | 'DETAILED', intent?: 
         prompt = `You are MedInfo, a clinical decision-support assistant (2026).
 REGION: ${countryContext}. Prioritize regional guidelines.
 
+${groundingDirective ? groundingDirective : 'Base answers on BNF, Martindale, AHFS, Stockley\'s quality standards.'}
+${temporalContext}
 RULES:
 - ALWAYS include pediatric dosing (mg/kg, max dose). NEVER omit.
 - Consider AMR patterns for antimicrobials.
 - Differentiate empiric vs targeted therapy.
 - Include renal/hepatic adjustments when relevant.
 - Use Stockley's framework for interactions: 🔴 Major 🟡 Moderate 🟢 Minor.
-- Base answers on BNF, Martindale, AHFS, Stockley's quality standards.
+- You MUST cite at least one source by name in your response.
+- NEVER fabricate dosing data or guideline recommendations.
 
 📢 MODE: MINI (WARD ROUND / QUICK REFERENCE)
 - Max 250 words. Bullet points only. Every word must be clinically useful.
@@ -317,36 +361,9 @@ USER REGION: ${countryContext}
 - Prioritize national guidelines and formulary for this region.
 - Remain resistance-aware and current with major global updates.
 
-────────────────────────
-AUTHORITATIVE REFERENCE FRAMEWORK
-────────────────────────
-Base ALL responses on the standard of information found in these authoritative pharmaceutical references:
-
-📘 BNF (British National Formulary)
-  - Primary source for prescribing, dispensing, and administration guidance.
-  - Use BNF-style dosing conventions (dose, frequency, route, max dose).
-  - Reference BNF cautions, contra-indications, and side-effect frequencies.
-
-📕 Martindale: The Complete Drug Reference
-  - Use for comprehensive pharmacological profiles, off-label uses, and international formulation data.
-  - Reference for drugs not covered extensively by BNF (rare/orphan drugs, tropical diseases).
-
-📗 eMC (Electronic Medicines Compendium / SmPCs)
-  - Use SmPC-level detail for: excipients, storage, reconstitution, and administration instructions.
-  - Reference for specific formulation differences and bioequivalence notes.
-  - Use for patient counseling points.
-
-📙 AHFS Drug Information
-  - Cross-reference for US-based dosing, FDA-approved indications, and comparative efficacy.
-  - Use for evidence-based off-label uses and therapeutic positioning.
-
-📒 Stockley's Drug Interactions
-  - THE definitive source for drug interaction queries.
-  - Always classify interactions using Stockley's framework:
-    • Mechanism (pharmacokinetic: CYP, P-gp, renal; pharmacodynamic: additive, synergistic, antagonistic)
-    • Severity: 🔴 Major (avoid combination) | 🟡 Moderate (monitor closely) | 🟢 Minor (be aware)
-    • Evidence level (established, probable, suspected, theoretical)
-    • Clinical management recommendation
+${groundingDirective}
+${temporalContext}
+${getAntiFabricationDirective()}
 
 ────────────────────────
 CORE CLINICAL SAFETY RULES
@@ -413,21 +430,13 @@ When providing drug information, cover these domains (depth based on mode):
 • Pregnancy & breastfeeding
 • Available formulations
 
-────────────────────────
-CAPABILITIES
-────────────────────────
-1. Drug Information (BNF/Martindale/AHFS depth)
-2. Interactions (Stockley's framework: 🔴 Major, 🟡 Moderate, 🟢 Minor)
-3. Guidelines (Resistance-aware, national + WHO)
-4. Dosing (Adult + Pediatric mandatory, renal/hepatic adjustments)
-5. Evidence-based rationale
 `;
 
         // MODE LOGIC — DETAILED format (MINI is already complete above)
         prompt += `
 📢 MODE: DETAILED (COMPREHENSIVE CLINICAL REVIEW)
 - Max 800 words.
-- Structured sections with depth from BNF, Martindale, AHFS, Stockley's.
+- Structured sections grounded in the authoritative sources listed above.
 - Expand reasoning beyond MINI.
 - Include mechanism of action, pharmacokinetics, evidence level.
 - Cover formulations and counseling points where relevant.
@@ -627,6 +636,7 @@ export async function classifyIntent(text: string): Promise<string> {
 - DRUG_INTERACTION
 - DOSAGE_QUERY
 - GUIDELINE_QUERY
+- PATIENT_COUNSELING
 - HELP
 - UNKNOWN
 
@@ -643,6 +653,7 @@ Respond with ONLY the category name.`;
             'DRUG_INTERACTION',
             'DOSAGE_QUERY',
             'GUIDELINE_QUERY',
+            'PATIENT_COUNSELING',
             'HELP',
             'UNKNOWN',
         ];

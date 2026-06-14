@@ -33,64 +33,40 @@ export const telegram: HttpsFunction = onRequest(
         secrets: ['TELEGRAM_BOT_TOKEN', 'GEMINI_API_KEY'],
     },
     async (req, res) => {
-        console.log('=== Telegram webhook received ===');
-        console.log('Method:', req.method);
-        console.log('Body:', JSON.stringify(req.body, null, 2));
-
         try {
-            // Validate request method
             if (req.method !== 'POST') {
-                console.log('Rejected: Not POST');
                 res.status(405).send('Method Not Allowed');
                 return;
             }
 
-            // Check if secrets are available
-            console.log('TELEGRAM_BOT_TOKEN exists:', !!process.env['TELEGRAM_BOT_TOKEN']);
-            console.log('GEMINI_API_KEY exists:', !!process.env['GEMINI_API_KEY']);
-
-            // Parse the Telegram update
             const message = parseTelegramUpdate(req.body);
-            console.log('Parsed message:', message ? JSON.stringify(message) : 'null');
 
             if (!message) {
-                console.log('No message parsed, returning OK');
                 res.status(200).send('OK');
                 return;
             }
 
-            // Acknowledge callback query immediately
             if (message.callbackQueryId) {
-                console.log('Answering callback query:', message.callbackQueryId);
                 await telegramClient.answerCallbackQuery(message.callbackQueryId);
             }
 
-            // Process the message
-            console.log('Processing message...');
             const response = await processMessage(message);
-            console.log('Response:', JSON.stringify(response));
 
-            // Handle special response types
             if (response.text === '__WELCOME__') {
-                console.log('Sending welcome message');
                 await telegramClient.sendWelcomeMessage(message.chatId);
             } else if (response.text === '__HELP__') {
                 const country = (response as { country?: string }).country ?? 'WHO';
-                console.log('Sending help message for country:', country);
                 await telegramClient.sendHelpMessage(message.chatId, country);
             } else if (response.text === '__COUNTRY_SELECT__') {
-                console.log('Sending country selection');
                 await telegramClient.sendWelcomeMessage(message.chatId);
             } else if (response.text === '__COUNTRY_CONFIRMED__') {
                 const country = (response as { country?: string }).country ?? 'WHO';
-                console.log('Sending country confirmation:', country);
                 await telegramClient.sendCountryConfirmation(message.chatId, country);
             } else {
-                console.log('Sending bot response');
                 await telegramClient.sendBotResponse(message.chatId, response);
             }
 
-            console.log('Message processed successfully:', message.messageId);
+            console.log('Processed Telegram message:', message.messageId);
             res.status(200).send('OK');
 
         } catch (error) {
@@ -129,11 +105,7 @@ export const health: HttpsFunction = onRequest(
             name: BOT_NAME,
             version: BOT_VERSION,
             timestamp: new Date().toISOString(),
-            env: {
-                telegramToken: !!process.env['TELEGRAM_BOT_TOKEN'],
-                geminiKey: !!process.env['GEMINI_API_KEY'],
-                gcloudProject: process.env['GCLOUD_PROJECT'] ?? 'not set',
-            }
+            uptime: process.uptime(),
         });
     }
 );

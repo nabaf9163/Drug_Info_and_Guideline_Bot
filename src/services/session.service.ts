@@ -101,13 +101,11 @@ async function createNewSession(
         platform,
         chatId,
         userId,
-        // state: SESSION_STATES.AWAITING_PRIVACY, // DISABLED: Privacy flow skipped by user request
-        // state: SESSION_STATES.AWAITING_COUNTRY, // DISABLED: Defaulting to WHO by user request
         state: SESSION_STATES.IDLE,
         currentIntent: null,
-        country: 'WHO', // Default to WHO
-        privacyAccepted: true, // Auto-accept for now
-        responseMode: 'MINI', // Default for new sessions
+        country: 'WHO',
+        privacyAccepted: true,
+        responseMode: 'MINI',
         context: {
             conversationHistory: [],
         },

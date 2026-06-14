@@ -52,7 +52,6 @@ interface TelegramCallbackQuery {
     data?: string;
 }
 
-// ... (lines 36-56 unchanged) ...
 
 export function parseTelegramUpdate(update: TelegramUpdate): NormalizedMessage | null {
     // Handle regular messages
@@ -153,9 +152,6 @@ export async function telegramWebhook(req: Request, res: Response): Promise<void
         const response = await processMessage(message);
 
         // Handle special response types
-        console.log('[DEBUG v3] Routing response, text:', JSON.stringify(response.text));
-        const responseText = response.text.trim();
-
         if (response.type === 'welcome') {
             await telegramClient.sendWelcomeMessage(message.chatId);
             // Send persistent reply keyboard after welcome

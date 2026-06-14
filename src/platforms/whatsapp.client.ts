@@ -88,7 +88,7 @@ export async function sendInteractiveButtons(
         },
     }));
 
-    const interactiveBody: any = { text: bodyText };
+    const interactiveBody: Record<string, unknown> = { text: bodyText };
     if (headerText) {
         interactiveBody.header = {
             type: 'text',
@@ -337,7 +337,7 @@ export async function sendHelpMessage(to: string, currentCountry: string): Promi
 }
 
 /**
- * Send a bot response (routes BotResponse to appropriate WhatsApp method)
+ * WhatsApp persistent menu configuration
  */
 const MAIN_MENU = {
     buttonText: '☰ Menu',

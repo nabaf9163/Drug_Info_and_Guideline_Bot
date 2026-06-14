@@ -13,13 +13,11 @@ import * as extractionService from '../services/extraction.service.js';
 import { trackingService } from '../services/tracking.service.js';
 import { analyticsService } from '../services/analytics.service.js';
 
-
 /**
  * Process an incoming message and generate a response
  */
 export async function processMessage(message: NormalizedMessage): Promise<BotResponse> {
     const startTime = Date.now();
-    console.log('[processMessage] Starting, text:', message.text?.substring(0, 50));
 
     // Get or create session
     const session = await sessionService.getOrCreateSession(
@@ -27,27 +25,20 @@ export async function processMessage(message: NormalizedMessage): Promise<BotRes
         message.chatId,
         message.userId
     );
-    console.log('[processMessage] Session loaded, state:', session.state, 'country:', session.country);
 
     // Handle commands first
     if (message.command) {
-        console.log('[processMessage] Handling command:', message.command);
         return handleCommand(message, session, startTime);
     }
 
     // Handle callback data (button presses)
     if (message.callbackData) {
-        console.log('[processMessage] Handling callback:', message.callbackData);
         return handleCallback(message, session, startTime);
     }
 
-    // Handle based on session state
-    console.log('[processMessage] Session state switch:', session.state);
     switch (session.state) {
         case SESSION_STATES.AWAITING_PRIVACY:
-            // DISABLED: Privacy flow skipped by user request
-            // Auto-accept and move to country selection
-            console.log('[processMessage] Privacy flow disabled. Auto-accepting.');
+            // Privacy flow auto-accepted
             await sessionService.markPrivacyAccepted(session.sessionId);
             return createResponse(
                 '__COUNTRY_SELECT__',
@@ -56,36 +47,12 @@ export async function processMessage(message: NormalizedMessage): Promise<BotRes
             );
 
         case SESSION_STATES.AWAITING_COUNTRY:
-            // DISABLED: Defaulting to WHO by user request
-            // Auto-set country and process query
-            console.log('[processMessage] Country selection disabled. Defaulting to WHO.');
+            // Auto-set country to WHO and process query immediately
             await sessionService.setSessionCountry(session.sessionId, 'WHO');
-
-            // Fallthrough to process query immediately
             return processQuery(message, session, startTime);
-
-        /* DISABLED: Old logic
-            // Try to parse country from text
-            const countryMatch = findCountryInText(message.text);
-            if (countryMatch) {
-                await sessionService.setSessionCountry(session.sessionId, countryMatch);
-                return createResponse(
-                    `✅ Region set to: ${getCountryDisplay(countryMatch)}\n\nNow you can ask me anything! Try:\n• "What is metformin?"\n• /help — See all commands`,
-                    startTime
-                );
-            }
-            // If no country found, prompt with the interactive list again
-            return createResponse(
-                '__COUNTRY_SELECT__',
-                startTime,
-                { type: 'country_select' }
-            );
-        */
 
         case SESSION_STATES.IDLE:
         default:
-            // Process natural language query
-            console.log('[processMessage] Calling processQuery for:', message.text?.substring(0, 50));
             return processQuery(message, session, startTime);
     }
 }
@@ -139,7 +106,6 @@ async function handleCommand(
             return createResponse('__COUNTRY_SELECT__', startTime, { type: 'country_select' });
 
         case 'cancel':
-        case 'cancel':
             // Fully expire/delete the session to simulate a fresh user
             await sessionService.expireSession(session.sessionId);
             return createResponse('🔄 Session reset complete.\n\nType "Hi" to start over.', startTime);
@@ -186,8 +152,6 @@ async function handleCommand(
                     startTime
                 );
             }
-            return createResponse('Please specify a condition. Example: /guideline hypertension', startTime);
-
             return createResponse('Please specify a condition. Example: /guideline hypertension', startTime);
 
         case 'mode':
@@ -425,7 +389,6 @@ async function processQuery(
             state: SESSION_STATES.IDLE,
         });
 
-        console.log('[processQuery] Returning response');
 
         // Inline button: "Expand this" with the user turn index so we expand the correct query
         // The user turn was just added at the current history length minus 2 (user, then assistant)
@@ -490,28 +453,4 @@ function createResponse(
         tokensUsed: 0,
         ...metadata,
     };
-}
-
-/**
- * Find country code in text
- */
-function findCountryInText(text: string): string | null {
-    const lower = text.toLowerCase();
-    for (const country of SUPPORTED_COUNTRIES) {
-        if (
-            lower.includes(country.code.toLowerCase()) ||
-            lower.includes(country.name.toLowerCase())
-        ) {
-            return country.code;
-        }
-    }
-    return null;
-}
-
-/**
- * Get display string for country
- */
-function getCountryDisplay(code: string): string {
-    const country = SUPPORTED_COUNTRIES.find(c => c.code === code);
-    return country ? `${country.emoji} ${country.name}` : code;
 }

@@ -130,16 +130,7 @@ export async function whatsappWebhook(req: Request, res: Response): Promise<void
             const challenge = req.query['hub.challenge'];
 
             const config = getConfig();
-            // Read directly from env and trim to handle any whitespace from secret manager
             const expectedToken = (process.env['WHATSAPP_VERIFY_TOKEN'] || config.whatsappVerifyToken || '').trim();
-
-            console.log('Webhook verification attempt:', {
-                mode,
-                tokenReceived: token,
-                tokenLength: token?.length,
-                expectedLength: expectedToken.length,
-                tokenMatch: token === expectedToken
-            });
 
             if (mode === 'subscribe' && token === expectedToken) {
                 console.log('WhatsApp webhook verified');
@@ -147,6 +138,7 @@ export async function whatsappWebhook(req: Request, res: Response): Promise<void
                 return;
             }
 
+            console.warn('WhatsApp webhook verification failed');
             res.status(403).send('Forbidden');
             return;
         }
@@ -156,8 +148,6 @@ export async function whatsappWebhook(req: Request, res: Response): Promise<void
             res.status(405).send('Method Not Allowed');
             return;
         }
-
-
 
         const payload = req.body as WhatsAppWebhookPayload;
 
@@ -178,9 +168,6 @@ export async function whatsappWebhook(req: Request, res: Response): Promise<void
         const response = await processMessage(message);
 
         // Route response to appropriate WhatsApp method
-        console.log('[DEBUG] Routing response, text:', JSON.stringify(response.text));
-
-        // const responseText = response.text.trim(); // Unused
 
         if (response.type === 'welcome') {
             await whatsappClient.sendWelcomeMessage(message.chatId);
